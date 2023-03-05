@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>METANIT.COM</title>
+    <meta charset="utf-8" />
+</head>
+<body>
+    <div id="message"></div>
+     <p>
+        Введите марку: <br /> 
+        <input name="usermark" id="usermark" />
+    </p>
+    <p>
+        Введите модель: <br /> 
+        <input name="usermodel" id="usermodel" />
+    </p>
+     <p>
+        Введите год: <br /> 
+        <input name="userage" id="userage" type="userage" />
+    </p>
+    <p>
+        Введите обьем: <br /> 
+        <input name="uservolume" id="uservolume" type="uservolume" />
+    </p>
+    <button onclick="send()">Отправить</button>
+<script>
+    async function send(){
+ 
+        // получаем введеное в поле имя и возраст
+        const usermark = document.getElementById("usermark").value;
+        const usermodel = document.getElementById("usermodel").value;
+        const userage = document.getElementById("userage").value;
+        const uservolume = document.getElementById("uservolume").value;
+ 
+ 
+ 
+        // отправляем запрос
+        const response = await fetch("/task", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    mark: usermark,
+                    model: usermodel,
+                    age: userage,
+                    volume: uservolume
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById("message").textContent = data.message;
+            }
+            else
+                console.log(response);
+    }
+</script>
+</body>
+</html>
