@@ -4,6 +4,62 @@ from fastapi.encoders import jsonable_encoder
 import mimetypes, uuid
 from pydantic import BaseModel
 from datetime import datetime
+from datebase import DBconnect
+from db2 import Manufacturers, ManufacturersStorehouses, Sweets, SweetsTypes, Storehouses
+import datetime
+from utils import Utils
+
+app = FastAPI()
+con = DBconnect()
+utils = Utils()
+
+@app.get('/api/all_sweets')
+def all_sweets():
+    sel = con.select_all(Sweets)
+    # return JSONResponse(sel)
+    return sel
+
+@app.get('/api/one_select/{id}')
+def one_select(id: int):
+    sel = con.select(Sweets, id, Sweets.id)
+    return sel
+
+@app.post('/api/add_sweets')
+def add_sweets(name: str = Body(embed=True, min_length=2, max_length= 50),
+            cost: str = Body(embed=True, min_length=1, max_length= 10),
+            weight:str = Body(embed=True, min_length=1, max_length= 10),
+            manufacturer_id: int = Body(embed=True, ge=1),
+            production_date:str = Body(embed=True),
+            expiration_date:str = Body(embed=True),
+            with_sugar:bool =Body(embed=True),
+            requires_freezing:bool =Body(embed=True),
+            sweets_types_id: int =Body(embed=True, ge=1),
+            ):
+
+    production_date, expiration_date = utils.convert_today(production_date), utils.convert_today(expiration_date)
+    if production_date != False and expiration_date  !=False:
+        res, error = con.isnsert(Sweets(name = name, cost=cost, weight=weight, manufacturer_id=manufacturer_id, production_date=production_date, expiration_date=expiration_date, with_sugar=with_sugar, requires_freezing=requires_freezing, sweets_types_id=sweets_types_id))
+        return {'result': res, 'error': error}
+    return {'result': '', 'error': 'Date is invalide'}
+
+@app.post('/api/update_sweets/')
+def update_sweets(id: int = Body(embed=True, ge = 1),
+                name: str = Body(embed=True, min_length=2, max_length= 50),
+                cost: str = Body(embed=True, min_length=1, max_length= 10),
+                weight:str = Body(embed=True, min_length=1, max_length= 10),
+                manufacturer_id: int = Body(embed=True, ge=1),
+                production_date:str = Body(embed=True),
+                expiration_date:str = Body(embed=True),
+                with_sugar:bool =Body(embed=True),
+                requires_freezing:bool =Body(embed=True),
+                sweets_types_id: int =Body(embed=True, ge=1)):
+    value = {"id": id, "name":name, "cost": cost, "weight":weight, "manufacturer_id":manufacturer_id, "production_date":production_date, "expiration_date":expiration_date, "with_sugar":with_sugar, "requires_freezing":requires_freezing, "sweets_types_id":sweets_types_id}
+    production_date, expiration_date = utils.convert_today(production_date), utils.convert_today(expiration_date)
+    if production_date != False and expiration_date  !=False:
+        res, error = con.update_field(model=Sweets, id=id, value=value)
+        return {'result': res, 'error': error}
+
+
 
 
 
@@ -18,116 +74,115 @@ from datetime import datetime
 #     age: int
 #     volume: float  #обьем
 
-class Person:
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
-        self.id = str(uuid.uuid4())
+# class Person:
+#     def __init__(self, name, age):
+#         self.name = name
+#         self.age = age
+#         self.id = str(uuid.uuid4())
 
-people = [Person("Tom", 38), Person("Bob", 42), Person("Sam", 28)]
+# people = [Person("Tom", 38), Person("Bob", 42), Person("Sam", 28)]
 
-def take_people(id):
-    for i in people:
-        if i.id == id:
-            return i
-        return None
+# def take_people(id):
+#     for i in people:
+#         if i.id == id:
+#             return i
+#         return None
         
         
-app = FastAPI()
 
-@app.get("/")
-async def main():
-    return FileResponse("public/index.html")
+# @app.get("/")
+# async def main():
+#     return FileResponse("public/index.html")
 
-@app.get("/api/users")
-def get_people():
-    return people
+# @app.get("/api/users")
+# def get_people():
+#     return people
 
-@app.get("/api/users/{id}")
-def get_person(id):
-    # получаем пользователя по id
-    person = take_people(id)
-    print(person)
-    # если не найден, отправляем статусный код и сообщение об ошибке
-    if person==None:  
-        return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                content={ "message": "Пользователь не найден" }
-        )
-    #если пользователь найден, отправляем его
-    return person
+# @app.get("/api/users/{id}")
+# def get_person(id):
+#     # получаем пользователя по id
+#     person = take_people(id)
+#     print(person)
+#     # если не найден, отправляем статусный код и сообщение об ошибке
+#     if person==None:  
+#         return JSONResponse(
+#                 status_code=status.HTTP_404_NOT_FOUND, 
+#                 content={ "message": "Пользователь не найден" }
+#         )
+#     #если пользователь найден, отправляем его
+#     return person
 
-@app.post("/api/users")
-def create_person(data  = Body()):
-    person = Person(data["name"], data["age"])
-    # добавляем объект в список people
-    people.append(person)
-    return person
+# @app.post("/api/users")
+# def create_person(data  = Body()):
+#     person = Person(data["name"], data["age"])
+#     # добавляем объект в список people
+#     people.append(person)
+#     return person
 
-@app.put("/api/users")
-def edit_person(data  = Body()):
+# @app.put("/api/users")
+# def edit_person(data  = Body()):
 
-    # получаем пользователя по id
-    person = take_people(data["id"])
-    # если не найден, отправляем статусный код и сообщение об ошибке
-    if person == None: 
-        return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                content={ "message": "Пользователь не найден" }
-        )
-    # если пользователь найден, изменяем его данные и отправляем обратно клиенту
-    person.age = data["age"]
-    person.name = data["name"]
-    return person
+#     # получаем пользователя по id
+#     person = take_people(data["id"])
+#     # если не найден, отправляем статусный код и сообщение об ошибке
+#     if person == None: 
+#         return JSONResponse(
+#                 status_code=status.HTTP_404_NOT_FOUND, 
+#                 content={ "message": "Пользователь не найден" }
+#         )
+#     # если пользователь найден, изменяем его данные и отправляем обратно клиенту
+#     person.age = data["age"]
+#     person.name = data["name"]
+#     return person
 
-@app.delete("/api/users/{id}")
-def delete_person(id):
-    # получаем пользователя по id
-    person = take_people(id)
+# @app.delete("/api/users/{id}")
+# def delete_person(id):
+#     # получаем пользователя по id
+#     person = take_people(id)
 
-    # если не найден, отправляем статусный код и сообщение об ошибке
-    if person == None:
-        return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                content={ "message": "Пользователь не найден" }
-        )
+#     # если не найден, отправляем статусный код и сообщение об ошибке
+#     if person == None:
+#         return JSONResponse(
+#                 status_code=status.HTTP_404_NOT_FOUND, 
+#                 content={ "message": "Пользователь не найден" }
+#         )
 
-    # если пользователь найден, удаляем его
-    people.remove(person)
-    return person
+#     # если пользователь найден, удаляем его
+#     people.remove(person)
+#     return person
 
 
-@app.get("/test")
-def root(user_agent: str = Header()):
-    return {"User-Agent": user_agent}
+# @app.get("/test")
+# def root(user_agent: str = Header()):
+#     return {"User-Agent": user_agent}
 
-@app.get("/data")
-def root(response: Response):
-    now = datetime.now()    # получаем текущую дату и время
-    response.set_cookie(key="last_visit", value=now)
-    return  {"message": "куки установлены"}
+# @app.get("/data")
+# def root(response: Response):
+#     now = datetime.now()    # получаем текущую дату и время
+#     response.set_cookie(key="last_visit", value=now)
+#     return  {"message": "куки установлены"}
 
-@app.get("/data2")
-def root(last_visit = Cookie()):
-    return  {"last visit": last_visit}
+# @app.get("/data2")
+# def root(last_visit = Cookie()):
+#     return  {"last visit": last_visit}
 
-@app.get('/main')
-def main2():
-    return FileResponse('public/main.html')
+# @app.get('/main')
+# def main2():
+#     return FileResponse('public/main.html')
 
-@app.post("/postdata")
-def postdata(username = Form(default="Undefined"),
-            userage: int = Form(ge=18, lt=100)):
-    return {"username": username, "userage": userage}
+# @app.post("/postdata")
+# def postdata(username = Form(default="Undefined"),
+#             userage: int = Form(ge=18, lt=100)):
+#     return {"username": username, "userage": userage}
 
-@app.get("/post2")
-def main3():
-    return FileResponse("public/postdata.html")
+# @app.get("/post2")
+# def main3():
+#     return FileResponse("public/postdata.html")
 
-@app.post("/postdata2")
-def postdata2(username: str = Form(),
-            languages: list= Form()):
-    return {"username": username, "languagers": languages}
+# @app.post("/postdata2")
+# def postdata2(username: str = Form(),
+#             languages: list= Form()):
+#     return {"username": username, "languagers": languages}
 
 
 # @app.get('/')
