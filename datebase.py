@@ -11,10 +11,6 @@ import json
 # print(engine)
 
 class DBconnect:
-
-    def __init__(self, model):
-        self.model = model
-
     
     engine = create_engine('postgresql://alex:12345@localhost/mybase')
 
@@ -43,13 +39,15 @@ class DBconnect:
         except Exception as e:
             return False
         
-    def select(self, model, param, fld):
+    def select(self, model, id):
         try:
             with Session(self.engine) as session:
                 try:
-                    statement = select(model).where(fld == param)
-                    resalt = session.exec(statement).all()
-                    return self.convert_json(resalt)
+                    statement = select(model).where(model.id == id)
+                    resalt = session.exec(statement).one_or_none()
+                    if resalt:
+                        return self.convert_json(resalt)
+                    return False
                 except Exception as e:
                     return False
         except:
@@ -64,47 +62,55 @@ class DBconnect:
             except Exception as e:
                 return False, e
             
-    def dlt(self, model, field, param):
+    def dlt(self, model, id):
         with Session(self.engine) as session:
             try:
-                statement = select(model).where(field == param)
+                statement = select(model).where(model.id == id)
                 results = session.exec(statement)
+                id_dl = results.one()
+                session.delete(id_dl)
+                session.commit()
                 return True, ''
             except Exception as e:
                 return False, e
             
 
 
-    def update_field(self, model, id, value):
+    def update_field(self, model, value):
         with Session(self.engine) as session:
             try:
-                statement = select(model).where(model.id==id, model.id == value.id)
+                statement = select(model).where(model.id==value["id"])
                 results = session.exec(statement)
-                upd = results.one()
-                upd.id = value.id
-                upd.name = value.name
-                upd.cost = value.cost
-                upd.weight= value.weight
-                upd.manufacturer_id = value.manufacturer_id
-                upd.production_date = value.production_date
-                upd.expiration_date =value.expiration_date
-                upd.with_sugar = value.with_sugar
-                upd.requires_freezing = value.requires_freezing
-                upd.sweets_types_id =value.sweets_types_id
-                session.add(upd)
-                session.commit()
-                session.refresh(upd)
-                return True, ''
+                upd = results.one_or_none()
+                if upd:
+                    upd.name, upd.cost, upd.weight, upd.manufacturer_id, upd.production_date, upd.expiration_date, upd.with_sugar, upd.requires_freezing, upd.sweets_types_id = value["name"], value['cost'], value['weight'], value['manufacturer_id'], value['production_date'], value['expiration_date'], value['with_sugar'], value['requires_freezing'], value['sweets_types_id']
+                    session.add(upd)
+                    session.commit()
+                    session.refresh(upd)
+                    return True, ''
+                return False, "id is not found "
             except Exception as e:
                 return False, e
 
 
 
+val = {
+    "id":999,
+    "name": "Nats", 
+    "cost": "250",
+    "weight": "1",
+    "manufacturer_id": 3,
+    "production_date": "2023-01-24",
+    "expiration_date": "2023-01-24",
+    "with_sugar":True,
+    "requires_freezing":False,
+    "sweets_types_id": 2
 
+}
 
 
 # cveri = DBconnect()
-# print(cveri.update_field(Sweets, 5, name = "cost", val="500"))
+# print(cveri.update_field(Sweets, val))
 # # print(cveri.select(Manufacturers, Manufacturers.name, 'Трино'))
 # man = Manufacturers(id = 1, name= 'Мишаня', phone='75258899771', adress='109235, г. Москва, Проектируемый проезд, д.15', city='Moscow', country='Russia')
 # print(cveri.update_field(Manufacturers, man.id, 'name', 'Мишка3'))

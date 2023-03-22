@@ -13,16 +13,33 @@ app = FastAPI()
 con = DBconnect()
 utils = Utils()
 
-@app.get('/api/all_sweets')
-def all_sweets():
-    sel = con.select_all(Sweets)
-    # return JSONResponse(sel)
-    return sel
+@app.get('/api/all/{model}')
+def all(model):
+    match model:
+        case "sweets":
+            return con.select_all(Sweets)
+            # return JSONResponse(sel)
+        case "manufacturers":
+            return con.select_all(Manufacturers)
+        case "storehouses":
+            return con.select_all(Storehouses)
+        case _:
+            return False
 
-@app.get('/api/one_select/{id}')
-def one_select(id: int):
-    sel = con.select(Sweets, id, Sweets.id)
-    return sel
+
+@app.get('/api/one_select/{model}/{id}')
+def one_select(model, id: int):
+    match model:
+        case "sweets":
+            return con.select(Sweets, id)
+        case "manufacturers":
+            return con.select(Manufacturers, id)
+        case "storehouses":
+            return con.select(Storehouses, id)
+        case _:
+            return False
+        
+
 
 @app.post('/api/add_sweets')
 def add_sweets(name: str = Body(embed=True, min_length=2, max_length= 50),
@@ -53,13 +70,18 @@ def update_sweets(id: int = Body(embed=True, ge = 1),
                 with_sugar:bool =Body(embed=True),
                 requires_freezing:bool =Body(embed=True),
                 sweets_types_id: int =Body(embed=True, ge=1)):
-    value = {"id": id, "name":name, "cost": cost, "weight":weight, "manufacturer_id":manufacturer_id, "production_date":production_date, "expiration_date":expiration_date, "with_sugar":with_sugar, "requires_freezing":requires_freezing, "sweets_types_id":sweets_types_id}
     production_date, expiration_date = utils.convert_today(production_date), utils.convert_today(expiration_date)
     if production_date != False and expiration_date  !=False:
-        res, error = con.update_field(model=Sweets, id=id, value=value)
+        value = {"id": id, "name":name, "cost": cost, "weight":weight, "manufacturer_id":manufacturer_id, "production_date":production_date, "expiration_date":expiration_date, "with_sugar":with_sugar, "requires_freezing":requires_freezing, "sweets_types_id":sweets_types_id}
+        res, error = con.update_field(model=Sweets, value=value)
         return {'result': res, 'error': error}
+    return {'result': '', 'error': "No date"}
 
 
+@app.post('/api/delet_sweets/')
+def del_sweets(id: int = Body(embed=True, ge = 1)):
+    res, error = con.dlt(model=Sweets, id= id)
+    return {'result': res, 'error': error}
 
 
 
