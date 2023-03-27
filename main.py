@@ -29,12 +29,12 @@ def all(model):
 
 @app.get('/api/one_select/{model}/{id}')
 def one_select(model, id: int):
-    match model:
-        case "sweets":
+    match model, id:
+        case "sweets", id:
             return con.select(Sweets, id)
-        case "manufacturers":
+        case "manufacturers", id:
             return con.select(Manufacturers, id)
-        case "storehouses":
+        case "storehouses", id:
             return con.select(Storehouses, id)
         case _:
             return False
@@ -83,6 +83,72 @@ def del_sweets(id: int = Body(embed=True, ge = 1)):
     res, error = con.dlt(model=Sweets, id= id)
     return {'result': res, 'error': error}
 
+@app.post('/api/add_man/')
+def add_man(name: str =Body(embed=True, min_length=2, max_length=30),
+            phone: str =Body(embed=True, regex="7\d{10}$"),
+            adress: str =Body(embed=True, min_length=2, max_length=999),
+            city: str =Body(embed=True, min_length=2, max_length=50),
+            country: str =Body(embed=True, min_length=2, max_length=50)):
+    res, error = con.isnsert(Manufacturers(name=name, phone=phone, adress=adress, city=city, country=country))
+    return {'result':res, 'error': error}
+
+@app.post('/api/delet_man')
+def delet_man(id: int =Body(embed=True, ge=1)):
+    res, error = con.dlt(Manufacturers, id)
+    return {'result': res, 'error': error}
+
+@app.post('/api/upd_man')
+def upd_man(id: int =Body(embed=True, ge=1),
+            name: str =Body(embed=True, min_length=2, max_length=30),
+            phone: str =Body(embed=True, regex="7\d{10}$"),
+            adress: str =Body(embed=True, min_length=2, max_length=999),
+            city: str =Body(embed=True, min_length=2, max_length=50),
+            country: str =Body(embed=True, min_length=2, max_length=50)):
+    value = {'id': id, 'name':name, 'phone': phone, 'adress': adress, 'city':city, 'country':country}
+    res, error = con.update_field(Manufacturers, value)
+    return {'result': res, 'error': error}
+
+@app.post('/api/add_store/')
+def add_store(name: str =Body(embed=True, min_length=2, max_length=30),
+            adress: str =Body(embed=True, min_length=2, max_length=999),
+            city: str =Body(embed=True, min_length=2, max_length=50),
+            country: str =Body(embed=True, min_length=2, max_length=50)):
+    res, error = con.isnsert(Storehouses(name=name, adress=adress, city=city, country=country))
+    return {'result':res, 'error': error}
+
+@app.post('/api/delet_store')
+def delet_store(id: int = Body(embed=True, ge=1)):
+    res, error = con.dlt(Storehouses, id)
+    return {'result': res, 'error': error}
+
+@app.post('/api/upd_store')
+def upd_store(id: int =Body(embed=True, ge=1),
+            name: str =Body(embed=True, min_length=2, max_length=30),
+            adress: str =Body(embed=True, min_length=2, max_length=999),
+            city: str =Body(embed=True, min_length=2, max_length=50),
+            country: str =Body(embed=True, min_length=2, max_length=50)):
+    value = {'id': id, 'name':name,'adress': adress, 'city':city, 'country':country}
+    res, error = con.update_field(Storehouses, value)
+    return {'result': res, 'error': error}
+
+@app.post('/api/add_man_store/')
+def add_man_store(storehouses_id: int =Body(embed=True, ge=1),
+                manufacturers_id: int =Body(embed=True, ge=1)):
+    res, error = con.isnsert(ManufacturersStorehouses, storehouses_id=storehouses_id, manufacturers_id=manufacturers_id)
+    return {'result':res, 'error': error}
+
+@app.post('/api/delet_man_store')
+def delet_man_store(id: int = Body(embed=True, ge=1)):
+    res, error = con.dlt(ManufacturersStorehouses, id)
+    return {'result': res, 'error': error}
+
+@app.post('/api/upd_man_store')
+def upd_man_store(id: int =Body(embed=True, ge=1),
+                storehouses_id: int =Body(embed=True, ge=1),
+                manufacturers_id: int =Body(embed=True, ge=1)):
+    value = {'id':id, 'storehouses_id': storehouses_id, 'manufacturers_id': manufacturers_id}
+    res, error = con.update_field(ManufacturersStorehouses, value)
+    return {'result':res, 'error': error}
 
 
 # class Person(BaseModel):

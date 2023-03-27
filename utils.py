@@ -1,9 +1,10 @@
-import datetime
+import datetime, json
+
+
 
 class Utils:
     def __init__(self, *args):
         self.args = args
-        
 
     def convert_today(self, dt):
         chislo = dt.split('-')
@@ -20,10 +21,20 @@ class Utils:
             return False
         return False
         
-                
-                
+
+    # def convert_datetime_str(self, data):
+    #     str_data = datetime.datetime.strptime(data, "%Y-%m-%d")
+    #     print(str_data, type(str_data))
+    #     return str_data.strftime("%Y-%m-%d")
+    
+    def convert_datetime_str(self, data):
+        str_data = data.strftime("%Y-%m-%d")
+        return str_data
+
 
 # er = Utils()
-# print(er.convert_today("2023-01-24"))
+# data = datetime.datetime(year=2023, month=4, day=2)
+# print(er.convert_today("2023-01-30"))
     
 
+# print(er.convert_datetime_str(data))
