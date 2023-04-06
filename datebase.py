@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlmodel import SQLModel, Session, create_engine, Field, select, insert
-from db2 import Manufacturers, ManufacturersStorehouses, Sweets, SweetsTypes, Storehouses
+from db2 import Manufacturers, ManufacturersStorehouses, Sweets, SweetsTypes, Storehouses, UserToken,ModelUser
 from pydantic import BaseModel  
 import json, sys
 import datetime
@@ -26,6 +26,17 @@ class DBconnect:
     #         return cls.instens
         
     def convert_json(self, res):
+        if isinstance(res, list):
+            user_json = []
+            for i in res:
+                if hasattr(i, 'production_date' or 'expiration_date'):
+                    i.production_date, i.expiration_date = utils.convert_datetime_str(i.production_date), utils.convert_datetime_str(i.expiration_date)
+                json_data = json.dumps(i.dict(), ensure_ascii=False).encode('utf8')
+                user_js = json.loads(json_data.decode('utf8'))
+                user_json.append(user_js)
+            return user_json
+        if hasattr(res, 'production_date' or 'expiration_date'):
+            res.production_date, res.expiration_date = utils.convert_datetime_str(res.production_date), utils.convert_datetime_str(res.expiration_date)
         json_data = json.dumps(res.dict(), ensure_ascii=False).encode('utf8')
         user_json = json.loads(json_data.decode('utf8'))
         print(user_json)
@@ -63,6 +74,7 @@ class DBconnect:
                     resalt = session.exec(statement).all()
                     return self.convert_json(resalt)
                 except Exception as e:
+                    print(e)
                     return False
         except Exception as e:
             return False
@@ -89,9 +101,11 @@ class DBconnect:
             try:
                 session.add(field)
                 session.commit()
-                return True, ''
+                session.refresh(field)
+                return True, '', field.id
             except Exception as e:
-                return False, e
+                return False, e, ''
+            
             
     def dlt(self, model, id):
         with Session(self.engine) as session:
@@ -120,9 +134,11 @@ class DBconnect:
                         upd.name, upd.phone, upd.adress, upd.city, upd.country=value['name'], value['phone'], value['adress'], value['city'], value['country']
                     elif model == Storehouses:
                         upd.name,upd.adress, upd.city, upd.country=value['name'], value['adress'], value['city'], value['country']
-                    else:
-                        model = ManufacturersStorehouses
+                    elif model == ManufacturersStorehouses:
                         upd.storehouses_id, upd.manufacturers_id = value['storehouses_id'], value['manufacturers_id']
+                    else:
+                        model == SweetsTypes
+                        upd.name = value['name']
                     session.add(upd)
                     session.commit()
                     session.refresh(upd)
@@ -150,8 +166,10 @@ class DBconnect:
 
 
 # cveri = DBconnect()
-# print(cveri.select(Sweets, 2))
-# # print(cveri.select(Manufacturers, Manufacturers.name, 'Трино'))
+# print(cveri.select_all(Sweets))
+# print(cveri.isnsert(ModelUser(name='Helen', password='3242')))
+
+# print(cveri.select(Manufacturers, Manufacturers.name, 'Трино'))
 # man = Manufacturers(id = 1, name= 'Мишаня', phone='75258899771', adress='109235, г. Москва, Проектируемый проезд, д.15', city='Moscow', country='Russia')
 # print(cveri.update_field(Manufacturers, man.id, 'name', 'Мишка3'))
 

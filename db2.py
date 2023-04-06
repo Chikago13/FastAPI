@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, Date, Identity, Integer, PrimaryKeyConstraint, String
+from sqlalchemy import Boolean, Column, Date, Identity, Integer, PrimaryKeyConstraint, String, Text
 from sqlmodel import Field, SQLModel
 
 class Manufacturers(SQLModel, table=True):
@@ -28,6 +28,19 @@ class ManufacturersStorehouses(SQLModel, table=True):
     id: Optional[int] = Field(default=None, sa_column=Column('id', Integer, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=2147483647, cycle=False, cache=1)))
     storehouses_id: int = Field(sa_column=Column('storehouses_id', Integer, nullable=False))
     manufacturers_id: int = Field(sa_column=Column('manufacturers_id', Integer, nullable=False))
+
+
+class ModelUser(SQLModel, table=True):
+    __tablename__ = 'model_user'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='model_user_pkey'),
+        {'schema': 'public'}
+    )
+
+    id: Optional[int] = Field(default=None, sa_column=Column('id', Integer))
+    name: str = Field(sa_column=Column('name', Text, nullable=False))
+    password: str = Field(sa_column=Column('password', Text, nullable=False))
+    phone: Optional[str] = Field(default=None, sa_column=Column('phone', Text))
 
 
 class Storehouses(SQLModel, table=True):
@@ -70,3 +83,16 @@ class SweetsTypes(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, sa_column=Column('id', Integer, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=2147483647, cycle=False, cache=1)))
     name: str = Field(sa_column=Column('name', String, nullable=False))
+
+
+class UserToken(SQLModel, table=True):
+    __tablename__ = 'user_token'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='user_token_pkey'),
+        {'schema': 'public'}
+    )
+
+    id: Optional[int] = Field(default=None, sa_column=Column('id', Integer))
+    user_id: int = Field(sa_column=Column('user_id', Integer, nullable=False))
+    user_token: str = Field(sa_column=Column('user_token', Text, nullable=False))
+    lvl: int = Field(sa_column=Column('lvl', Integer, nullable=False))

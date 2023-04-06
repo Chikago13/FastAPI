@@ -1,20 +1,128 @@
-from fastapi import FastAPI, Response, Path, Query, Body, status, Header, Cookie, Form
+from fastapi import FastAPI, Response, Path, Query, Body, status, Header, Cookie, Form, Depends, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse, FileResponse, RedirectResponse
 from fastapi.encoders import jsonable_encoder
 import mimetypes, uuid
 from pydantic import BaseModel
 from datetime import datetime
 from datebase import DBconnect
-from db2 import Manufacturers, ManufacturersStorehouses, Sweets, SweetsTypes, Storehouses
-import datetime
+from db2 import Manufacturers, ManufacturersStorehouses, Sweets, SweetsTypes, Storehouses, ModelUser, UserToken
+from datetime import timedelta, datetime
 from utils import Utils
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from passlib.context import CryptContext
+from typing import Optional
+from jose import jwt, JWTError
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+# from jose.exceptions import ExpiredSignatureError, JWSError, JWTClaimsError, JWTError
 
 app = FastAPI()
+
+#настроика для генирации и настройки токена
+SECRET_KEY = "AHDVPQURHVB[OERJVOCQEPVK-]ERKVWRBJI0FJDSNKV C[OIQERAFJC]"
+# Агоритм хэширования
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+#Объект для хэширования паролей
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+#Модель для токена
+class TokenData(BaseModel):
+    username:str = None
+
+class Token(BaseModel):
+    access_token:str
+    token_type:str
+
+#Функция для гинерации токена
+def create_access_token(data:dict,
+                        expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes= 15)
+        to_encode.update({"exp":expire})
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, ALGORITHM)
+    return encoded_jwt
+
+#Функция для проверки паролей
+def verify_password(plain_password, heshed_password):
+    return pwd_context.verify(plain_password, heshed_password)
+
+#Функция для хэширования паролей
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+#Функция для аунтификации пользователя
+async def authenticate_user(username: str, password: str, users:str):
+    user = get_user(username)
+    if not user:
+        return False
+    if not verify_password(password, user.password):
+        return False
+    return user.id
+
+#Функция для получения текущего пользователя
+async def get_current_user(token: str = Depends(OAuth2PasswordBearer(tokenUrl="login"))):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    user = get_user(username=token_data.username)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return user.id
+        
+# Маршрут для получения токена 
+@app.post("/login")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user_id = await authenticate_user(form_data.username, form_data.password)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": form_data.username}, expires_delta=access_token_expires)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/users/{user_id}")
+async def read_user(user_id: int, current_user: int = Depends(get_current_user)):
+    if user_id != current_user:
+        raise HTTPException(status_code=401, detail="You don't have access to this resource")
+    return {"user_id": user_id}
+
+
+security = HTTPBearer()
 con = DBconnect()
 utils = Utils()
 
+@app.post('/api/registrashen')
+def registrashen(login: str = Body(embed=True, min_length=2, max_length=30),
+                password: str =Body(embed=True, min_length=2, max_length=30),
+                phone: str =Body(embed=True, regex="7\d{10}$", default = None)
+                ):
+    password = get_password_hash(password)
+    res, error, user_id = con.isnsert(ModelUser(name=login, password=password, phone=phone))
+    res = {'name': login, 'password':password}
+    if res and len(error) == 0 and user_id:
+        token = create_access_token(res)
+        res, error, user_id = con.isnsert(UserToken(user_id = user_id, user_token= token))
+        return token
+
+
 @app.get('/api/all/{model}')
-def all(model):
+def all(model, user_agent:str = Header(), token: HTTPAuthorizationCredentials = Depends(security)):
+    if not token:
+        raise HTTPException(status_code=401, detail='Нет доступа')
+    if token.credentials != "123":
+        raise HTTPException(status_code=401,  detail='Нет доступа')
+    print(token)
+    # print(user_agent)
     match model:
         case "sweets":
             return con.select_all(Sweets)
@@ -23,6 +131,10 @@ def all(model):
             return con.select_all(Manufacturers)
         case "storehouses":
             return con.select_all(Storehouses)
+        case "manufacturers_storehouses":
+            return con.select_all(ManufacturersStorehouses)
+        case "sweets_types":
+            return con.select_all(SweetsTypes)
         case _:
             return False
 
@@ -36,6 +148,10 @@ def one_select(model, id: int):
             return con.select(Manufacturers, id)
         case "storehouses", id:
             return con.select(Storehouses, id)
+        case "manufacturers_storehouses", id:
+            return con.select(ManufacturersStorehouses, id)
+        case "sweets_types", id:
+            return con.select(SweetsTypes, id)
         case _:
             return False
         
@@ -55,7 +171,7 @@ def add_sweets(name: str = Body(embed=True, min_length=2, max_length= 50),
 
     production_date, expiration_date = utils.convert_today(production_date), utils.convert_today(expiration_date)
     if production_date != False and expiration_date  !=False:
-        res, error = con.isnsert(Sweets(name = name, cost=cost, weight=weight, manufacturer_id=manufacturer_id, production_date=production_date, expiration_date=expiration_date, with_sugar=with_sugar, requires_freezing=requires_freezing, sweets_types_id=sweets_types_id))
+        res, error, user_id = con.isnsert(Sweets(name = name, cost=cost, weight=weight, manufacturer_id=manufacturer_id, production_date=production_date, expiration_date=expiration_date, with_sugar=with_sugar, requires_freezing=requires_freezing, sweets_types_id=sweets_types_id))
         return {'result': res, 'error': error}
     return {'result': '', 'error': 'Date is invalide'}
 
@@ -89,7 +205,7 @@ def add_man(name: str =Body(embed=True, min_length=2, max_length=30),
             adress: str =Body(embed=True, min_length=2, max_length=999),
             city: str =Body(embed=True, min_length=2, max_length=50),
             country: str =Body(embed=True, min_length=2, max_length=50)):
-    res, error = con.isnsert(Manufacturers(name=name, phone=phone, adress=adress, city=city, country=country))
+    res, error, user_id= con.isnsert(Manufacturers(name=name, phone=phone, adress=adress, city=city, country=country))
     return {'result':res, 'error': error}
 
 @app.post('/api/delet_man')
@@ -113,7 +229,7 @@ def add_store(name: str =Body(embed=True, min_length=2, max_length=30),
             adress: str =Body(embed=True, min_length=2, max_length=999),
             city: str =Body(embed=True, min_length=2, max_length=50),
             country: str =Body(embed=True, min_length=2, max_length=50)):
-    res, error = con.isnsert(Storehouses(name=name, adress=adress, city=city, country=country))
+    res, error, user_id = con.isnsert(Storehouses(name=name, adress=adress, city=city, country=country))
     return {'result':res, 'error': error}
 
 @app.post('/api/delet_store')
@@ -134,7 +250,7 @@ def upd_store(id: int =Body(embed=True, ge=1),
 @app.post('/api/add_man_store/')
 def add_man_store(storehouses_id: int =Body(embed=True, ge=1),
                 manufacturers_id: int =Body(embed=True, ge=1)):
-    res, error = con.isnsert(ManufacturersStorehouses, storehouses_id=storehouses_id, manufacturers_id=manufacturers_id)
+    res, error, user_id = con.isnsert(ManufacturersStorehouses(storehouses_id=storehouses_id, manufacturers_id=manufacturers_id))
     return {'result':res, 'error': error}
 
 @app.post('/api/delet_man_store')
@@ -149,6 +265,23 @@ def upd_man_store(id: int =Body(embed=True, ge=1),
     value = {'id':id, 'storehouses_id': storehouses_id, 'manufacturers_id': manufacturers_id}
     res, error = con.update_field(ManufacturersStorehouses, value)
     return {'result':res, 'error': error}
+
+@app.post('/api/add_sweets_type')
+def add_sweets_type(name: str = Body(embed=True, min_length=2, max_length=50)):
+    res, error, user_id = con.isnsert(SweetsTypes(name=name))
+    return {'result': res, 'error': error}
+
+@app.post('/api/delet_sweets_type')
+def delet_sweets_type(id: int = Body(embed=True, ge=1)):
+    res, error = con.dlt(SweetsTypes, id)
+    return {'result': res, 'error': error}
+
+@app.post('/api/upd_sweets_type')
+def upd_sweets_type(id: int = Body(embed=True, ge=1),
+                    name: str = Body(embed=True, min_length=2, max_length=50)):
+    value = {'id':id, 'name':name}
+    res, error = con.update_field(SweetsTypes, value)
+    return {'result': res, 'error':error}
 
 
 # class Person(BaseModel):
